@@ -1,0 +1,2206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<style id="rekos-sora-font">@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap");</style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<!-- Desktop Chromium action-popup sizing fix: give the browser popup a stable viewport. -->
+<style id="rekos-desktop-popup-size">
+@media (pointer: fine) {
+html, body {
+width: 420px !important;
+min-width: 420px !important;
+max-width: 420px !important;
+height: 600px !important;
+min-height: 600px !important;
+max-height: 600px !important;
+}
+.app-shell {
+width: 100% !important;
+min-width: 0 !important;
+height: 600px !important;
+min-height: 600px !important;
+max-height: 600px !important;
+}
+}
+</style>
+<title>Rekos Uploader+</title>
+<link rel="preload" as="image" href="icons/pfpreins.jpg" fetchpriority="high">
+<style>
+:root {
+color-scheme: dark;
+--bg: #08050b;
+--rose: #ef315f;
+--rose-bright: #ff3e6b;
+--rose-soft: #ff5a7f;
+--purple: #8b3f70;
+--plum: #5f173d;
+--pearl: #ffe2ea;
+--text: #f8f5f8;
+--muted: #c5b7c1;
+--dim: #8f818c;
+--success: #34c759;
+--danger: #ff5b74;
+--glass: rgba(14, 8, 17, .58);
+--glass-soft: rgba(27, 15, 31, .47);
+--glass-strong: rgba(15, 8, 18, .78);
+--line: rgba(255, 226, 234, .15);
+--line-rose: rgba(255, 90, 127, .26);
+--radius-xl: 28px;
+--radius-lg: 22px;
+--radius-md: 17px;
+--radius-sm: 13px;
+--nav-h: 78px;
+}
+* { box-sizing: border-box; }
+html, body {
+margin: 0;
+width: 100%;
+min-width: 0;
+height: 100%;
+min-height: 100%;
+background: transparent;
+overflow: hidden;
+}
+body {
+min-height: 100dvh;
+width: 100%;
+max-width: 100%;
+color: var(--text);
+font-family: "Sora", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+overflow: hidden;
+overscroll-behavior: none;
+}
+
+@font-face {
+font-family: 'Neo';
+src: url('fonts/Neo.ttf') format('truetype');
+font-weight: normal;
+font-style: normal;
+font-display: swap;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── KILL THE WHITE TAP/CLICK FLASH ON ALL BUTTONS ──────────
+Chrome (desktop + Android) and Chrome-extension popups paint a
+default tap highlight and a focus ring on interactive elements.
+This removes it everywhere while keeping a visible ring for
+keyboard users via :focus-visible, and without touching the
+hover/active transforms already defined per button below. */
+button,
+a,
+[role="button"] {
+-webkit-tap-highlight-color: transparent;
+-webkit-touch-callout: none;
+-webkit-user-select: none;
+user-select: none;
+outline: none;
+background-color: transparent;
+}
+
+button:focus,
+a:focus,
+[role="button"]:focus {
+outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+outline: 2px solid var(--amber);
+outline-offset: 3px;
+}
+
+/* ── PRESS-FEEDBACK SYSTEM ───────────────────
+A slight scale-down "press" on the tapped surface with a
+spring-like release. JS toggles inline transform/transition
+on the tapped element (see attachPressFeedback in popup.js);
+every element that can be pressed is pre-promoted to its own
+GPU layer here so the scale animates smoothly with no jank. */
+.ryu-press-target {
+will-change: transform;
+backface-visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+.ryu-press-target { transition: none !important; }
+}
+
+/* ── GLOBAL TAP-RIPPLE OVERLAY ───────────────────────────────
+Page-level touch feedback only. This does NOT attach to any
+button/card/input — it's a single fixed full-viewport layer
+(#ryuTapRippleLayer) that sits on top of everything, and every
+tap anywhere in the popup spawns a short-lived ripple positioned
+at the exact tap coordinates inside it. Purely additive: it
+never touches existing hover/active/transition/animation rules
+on any other element. See the tap-ripple IIFE in popup.js. */
+.ryu-tap-ripple-layer {
+position: fixed;
+inset: 0;
+pointer-events: none;
+overflow: hidden;
+z-index: 2147483647;
+}
+
+.ryu-tap-ripple {
+position: absolute;
+width: 260px;
+height: 260px;
+border-radius: 50%;
+transform: translate(-50%, -50%) scale(0);
+border: 1px solid rgba(255, 255, 255, 0.35);
+background: radial-gradient(circle,
+rgba(255, 255, 255, 0.22) 0%,
+rgba(190, 220, 255, 0.10) 45%,
+rgba(140, 180, 255, 0) 75%);
+box-shadow: 0 0 14px 1px rgba(160, 200, 255, 0.18);
+pointer-events: none;
+will-change: transform, opacity;
+animation: ryuTapRippleOut 320ms cubic-bezier(0.19, 1, 0.22, 1) forwards;
+}
+
+@keyframes ryuTapRippleOut {
+0% { transform: translate(-50%, -50%) scale(0); opacity: 0.6; }
+35% { opacity: 0.42; }
+100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+.ryu-tap-ripple { display: none; }
+}
+
+body {
+width: 390px;
+min-height: 100vh;
+background: var(--bg);
+color: var(--text);
+font-family: 'Inter', system-ui, -apple-system, sans-serif;
+overflow-x: hidden;
+padding-bottom: 80px;
+}
+
+/* ── FULL TAB MODE ──────────────────────────────────────
+"Full Tab" is a plain button (see #fullTabBtn in popup.js).
+Clicking it opens popup.html?fulltab=1 in a real browser tab
+and closes the popup, so the layout expands into ?fulltab=1's
+full-width mode (html.full-tab) instead of staying pinned at
+popup width. Uses viewport units + clamp() so it scales
+cleanly across any browser window size or screen resolution,
+instead of staying pinned at the fixed 390px popup width. */
+html.full-tab {
+width: 100%;
+min-height: 100vh;
+background: var(--bg);
+}
+
+html.full-tab body {
+width: 100%;
+max-width: clamp(390px, 92vw, 620px);
+min-height: 100vh;
+margin: 0 auto;
+padding-bottom: 0;
+box-shadow: 0 0 0 1px var(--border);
+display: flex;
+flex-direction: column;
+}
+
+html.full-tab .bottom-nav {
+position: sticky;
+left: auto;
+right: auto;
+bottom: 0;
+width: 100%;
+max-width: none;
+transform: none;
+margin-top: auto;
+}
+
+@media (min-width: 900px) {
+html.full-tab body {
+max-width: clamp(390px, 60vw, 680px);
+}
+}
+
+/* ── TOP HEADER BAR ── */
+.app-topbar {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 14px 16px 12px;
+border-bottom: 1px solid var(--border);
+}
+
+.app-logo {
+width: 40px;
+height: 40px;
+border-radius: 50%;
+overflow: hidden;
+flex-shrink: 0;
+border: 1px solid var(--border-lt);
+}
+
+.app-logo img {
+width: 100%;
+height: 100%;
+object-fit: cover;
+}
+
+.app-studio-name {
+font-size: 12px;
+font-weight: 700;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+color: var(--text);
+}
+
+/* ── MAIN CONTENT AREA ── */
+.app-content {
+padding: 0 16px;
+}
+
+/* ── PAGE TITLE ── */
+.app-title-section {
+text-align: center;
+padding: 22px 0 18px;
+}
+
+.app-title {
+font-family: 'Neo', 'Inter', system-ui, sans-serif;
+font-size: 34px;
+font-weight: 400;
+letter-spacing: 0.01em;
+line-height: 1;
+}
+
+.app-title .white { color: #ffffff; }
+.app-title .amber { color: var(--amber); }
+
+.app-subtitle {
+margin-top: 8px;
+font-size: 13.5px;
+line-height: 1.45;
+color: var(--text-muted);
+font-weight: 400;
+letter-spacing: 0.01em;
+}
+
+/* ── PAGE VIEWS ── */
+.page-view { display: none; }
+.page-view.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+background: var(--bg-card);
+border: 1px solid var(--border);
+border-radius: var(--card-radius);
+margin-bottom: 14px;
+position: relative;
+box-shadow: var(--card-shadow);
+transform: translateZ(0) scale(1);
+transition:
+transform 260ms var(--ease-smooth),
+box-shadow 260ms var(--ease-smooth),
+border-color 260ms var(--ease-smooth);
+will-change: transform;
+}
+
+.card:hover {
+transform: translateY(-3px) scale(1.012);
+box-shadow: var(--card-shadow-hover);
+border-color: var(--card-border-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+.card {
+transition: none;
+}
+.card:hover {
+transform: none;
+}
+}
+
+/* ── VIDEO PATCHER CARD ── */
+.patcher-card {
+padding: 24px 20px 20px;
+position: relative;
+overflow: hidden;
+background:
+linear-gradient(150deg, rgba(240,144,10,0.08) 0%, rgba(240,144,10,0) 50%),
+var(--bg-card);
+border-color: rgba(240, 144, 10, 0.18);
+}
+
+.patcher-card-header {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 10px;
+margin-bottom: 20px;
+}
+
+.patcher-icon {
+color: var(--amber);
+display: flex;
+align-items: center;
+justify-content: center;
+width: 44px;
+height: 44px;
+border-radius: 14px;
+background: var(--amber-soft);
+}
+
+.patcher-title {
+font-size: 18px;
+font-weight: 800;
+color: var(--text);
+letter-spacing: -0.01em;
+}
+
+/* Hidden real file input */
+#fileInput {
+position: absolute;
+opacity: 0;
+width: 0;
+height: 0;
+pointer-events: none;
+}
+
+/* Dashed upload button */
+.upload-btn {
+width: 100%;
+min-height: 56px;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 10px;
+border: 1.5px dashed #3a3a3a;
+border-radius: 16px;
+background: #111111;
+color: var(--text);
+font-size: 14px;
+font-weight: 600;
+cursor: pointer;
+transition: border-color 220ms var(--ease-smooth), background 220ms var(--ease-smooth), transform 160ms var(--ease-smooth);
+letter-spacing: 0.01em;
+font-family: inherit;
+padding: 0 16px;
+}
+
+.upload-btn:hover {
+border-color: #555555;
+background: #171717;
+}
+
+.upload-btn:active {
+transform: scale(0.985);
+}
+
+.upload-btn svg {
+flex-shrink: 0;
+color: #888;
+}
+
+/* Mode / Output cards row */
+.info-row {
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 10px;
+margin-top: 12px;
+}
+
+.info-cell {
+background: #111111;
+border: 1px solid var(--border);
+border-radius: 14px;
+padding: 11px 13px;
+transition: border-color 220ms var(--ease-smooth);
+}
+
+.info-cell-label {
+font-size: 9px;
+font-weight: 700;
+letter-spacing: 0.14em;
+text-transform: uppercase;
+color: var(--text-muted);
+margin-bottom: 4px;
+}
+
+.info-cell-value {
+font-size: 13px;
+font-weight: 700;
+color: var(--text);
+}
+
+.detect-warning {
+margin-top: 10px;
+padding: 11px 13px;
+border-radius: 14px;
+background: rgba(255, 80, 80, 0.08);
+border: 1px solid rgba(255, 80, 80, 0.35);
+color: #ff6b6b;
+font-size: 12px;
+font-weight: 600;
+line-height: 1.4;
+}
+
+/* ── WATERMARK TOGGLE CARD ── */
+.watermark-card {
+padding: 18px 20px;
+}
+
+.watermark-card-top {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 14px;
+}
+
+.watermark-card-title {
+font-size: 14px;
+font-weight: 700;
+color: var(--text);
+}
+
+.watermark-card-desc {
+margin-top: 3px;
+font-size: 11.5px;
+color: var(--text-muted);
+line-height: 1.4;
+}
+
+.wm-toggle {
+flex-shrink: 0;
+width: 46px;
+height: 27px;
+border-radius: 999px;
+border: 1px solid var(--border-lt);
+background: #1c1c1c;
+position: relative;
+cursor: pointer;
+padding: 0;
+transition: background 180ms ease, border-color 180ms ease, transform 160ms var(--ease-smooth);
+}
+
+.wm-toggle:active {
+transform: scale(0.94);
+}
+
+.wm-toggle-knob {
+position: absolute;
+top: 2px;
+left: 2px;
+width: 21px;
+height: 21px;
+border-radius: 50%;
+background: #888;
+transition: transform 180ms ease, background 180ms ease;
+}
+
+.wm-toggle.on {
+background: var(--amber-soft);
+border-color: var(--amber);
+}
+
+.wm-toggle.on .wm-toggle-knob {
+transform: translateX(19px);
+background: var(--amber);
+}
+
+/* ── FULL TAB BUTTON ── */
+.fulltab-btn {
+flex-shrink: 0;
+display: flex;
+align-items: center;
+gap: 8px;
+padding: 10px 18px;
+border-radius: 999px;
+border: 1px solid rgba(240, 144, 10, 0.3);
+background: var(--amber-soft);
+color: var(--amber);
+font-size: 12.5px;
+font-weight: 700;
+letter-spacing: 0.01em;
+cursor: pointer;
+font-family: inherit;
+transition: border-color 180ms ease, background 180ms ease, color 180ms ease, box-shadow 220ms var(--ease-smooth), transform 120ms ease;
+}
+
+.fulltab-btn:hover {
+border-color: var(--amber);
+background: linear-gradient(135deg, #ffb43c 0%, var(--amber) 55%, #c96f00 100%);
+color: #1a1200;
+box-shadow: 0 8px 20px -6px var(--amber-glow);
+transform: translateY(-1px);
+}
+
+.fulltab-btn:active {
+transform: scale(0.96);
+box-shadow: 0 4px 12px -6px var(--amber-glow);
+}
+
+.fulltab-btn svg { flex-shrink: 0; }
+
+.fulltab-btn:disabled {
+opacity: 0.55;
+cursor: default;
+pointer-events: none;
+transform: none;
+box-shadow: none;
+}
+
+/* ── PROCESS STATUS CARD ── */
+.status-inline-label {
+display: flex;
+align-items: center;
+gap: 7px;
+font-size: 10px;
+font-weight: 700;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: var(--text-muted);
+margin-bottom: 10px;
+}
+
+.status-inline-label svg {
+flex-shrink: 0;
+color: var(--amber);
+}
+
+.status-card {
+padding: 18px 20px;
+}
+
+.status-card-label {
+font-size: 10px;
+font-weight: 700;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: var(--text-muted);
+text-align: center;
+margin-bottom: 12px;
+}
+
+.status-box {
+background: #111111;
+border: 1px solid var(--border);
+border-radius: 14px;
+padding: 12px 14px;
+font-size: 13px;
+color: var(--text-muted);
+font-weight: 400;
+min-height: 44px;
+line-height: 1.45;
+transition: border-color 260ms var(--ease-smooth), color 260ms var(--ease-smooth), background 260ms var(--ease-smooth);
+}
+
+.status-box[data-state="processing"] {
+color: #e8e8f0;
+border-color: rgba(200,200,220,0.25);
+background: rgba(200,200,220,0.04);
+}
+
+.status-box[data-state="success"] {
+color: #b0ffd0;
+border-color: rgba(34, 217, 122, 0.25);
+background: rgba(34, 217, 122, 0.05);
+}
+
+.status-box[data-state="error"] {
+color: #ffc8d0;
+border-color: rgba(224, 80, 96, 0.28);
+background: rgba(224, 80, 96, 0.05);
+}
+
+@keyframes statusFlash {
+0% {
+transform: scale(0.97);
+border-color: var(--border);
+box-shadow: 0 0 0 0 var(--amber-glow);
+}
+35% {
+transform: scale(1.02);
+border-color: var(--amber);
+box-shadow: 0 0 0 5px var(--amber-glow);
+}
+100% {
+transform: scale(1);
+box-shadow: 0 0 0 0 rgba(240, 144, 10, 0);
+}
+}
+
+.status-box.status-flash {
+animation: statusFlash 520ms var(--ease-smooth);
+}
+
+/* ── PATCH & DOWNLOAD BUTTON ── */
+.patch-btn {
+width: 100%;
+min-height: 54px;
+display: none;
+align-items: center;
+justify-content: center;
+gap: 10px;
+border-radius: 16px;
+border: 1px solid var(--border-lt);
+background: #1c1c1c;
+color: var(--text-dim);
+font-size: 12px;
+font-weight: 800;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+cursor: not-allowed;
+font-family: inherit;
+position: relative;
+overflow: hidden;
+opacity: 0;
+transition: transform 220ms var(--ease-smooth), box-shadow 220ms var(--ease-smooth), background 220ms var(--ease-smooth), border-color 220ms var(--ease-smooth), color 220ms var(--ease-smooth), filter 220ms var(--ease-smooth), opacity 260ms var(--ease-smooth);
+margin-bottom: 12px;
+}
+
+body.has-file .patch-btn {
+display: flex;
+opacity: 1;
+animation: cuFadeUp 360ms var(--ease-smooth) both;
+}
+
+.patch-btn.enabled {
+background:
+linear-gradient(150deg, rgba(240,144,10,0.18) 0%, rgba(240,144,10,0.05) 60%),
+var(--bg-card2);
+border-color: rgba(240, 144, 10, 0.4);
+color: var(--amber);
+cursor: pointer;
+box-shadow: 0 10px 26px -10px var(--amber-glow);
+animation: patchBtnPulse 2.6s ease-in-out infinite;
+will-change: transform;
+}
+
+.patch-btn.enabled:hover {
+border-color: rgba(240, 144, 10, 0.6);
+background:
+linear-gradient(150deg, rgba(240,144,10,0.25) 0%, rgba(240,144,10,0.07) 60%),
+var(--bg-card2);
+transform: translateY(-1px);
+box-shadow: 0 16px 34px -8px var(--amber-glow);
+animation-play-state: paused;
+}
+
+.patch-btn.enabled:active {
+transform: scale(0.98);
+background:
+linear-gradient(150deg, rgba(240,144,10,0.14) 0%, rgba(240,144,10,0.04) 60%),
+var(--bg-card2);
+box-shadow: 0 6px 16px -8px var(--amber-glow);
+}
+
+.patch-btn svg { flex-shrink: 0; }
+
+.patch-btn-label {
+position: relative;
+z-index: 1;
+}
+
+.patch-btn-shine {
+position: absolute;
+inset: 0;
+border-radius: inherit;
+overflow: hidden;
+pointer-events: none;
+}
+
+.patch-btn.enabled .patch-btn-shine::before {
+content: '';
+position: absolute;
+top: 0;
+left: -60%;
+width: 45%;
+height: 100%;
+background: linear-gradient(115deg, transparent 0%, rgba(255,255,255,0.16) 50%, transparent 100%);
+transform: translateX(0) skewX(-20deg);
+will-change: transform;
+animation: patchBtnShine 2.6s ease-in-out infinite;
+}
+
+@keyframes patchBtnShine {
+0% { transform: translateX(0) skewX(-20deg); }
+55% { transform: translateX(422%) skewX(-20deg); }
+100% { transform: translateX(422%) skewX(-20deg); }
+}
+
+@keyframes patchBtnPulse {
+0%, 100% { box-shadow: 0 10px 26px -8px var(--amber-glow); }
+50% { box-shadow: 0 10px 34px -4px var(--amber-glow); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+.patch-btn.enabled,
+.patch-btn.enabled .patch-btn-shine::before {
+animation: none;
+}
+}
+
+/* ── SVG GLOW (Video Patcher / System Features / How to use) ── */
+@keyframes ryuIconGlow {
+0%, 100% { filter: drop-shadow(0 0 0 rgba(240, 144, 10, 0)); }
+50% { filter: drop-shadow(0 0 6px rgba(240, 144, 10, 0.85)); }
+}
+
+@keyframes ryuIconGlowGreen {
+0%, 100% { filter: drop-shadow(0 0 0 rgba(34, 217, 122, 0)); }
+50% { filter: drop-shadow(0 0 5px rgba(34, 217, 122, 0.85)); }
+}
+
+.patcher-icon svg,
+.sysfeat-icon svg,
+.status-inline-label svg,
+.patch-btn svg,
+.nav-btn svg,
+.notice-header svg,
+.social-icon-circle svg {
+animation: ryuIconGlow 5s ease-in-out infinite;
+}
+
+.sysfeat-check svg {
+animation: ryuIconGlowGreen 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+.patcher-icon svg,
+.sysfeat-icon svg,
+.status-inline-label svg,
+.patch-btn svg,
+.nav-btn svg,
+.notice-header svg,
+.social-icon-circle svg,
+.sysfeat-check svg {
+animation: none;
+}
+}
+
+/* ── FFMPEG PROCESSING PANEL — centered modal overlay ── */
+.processing-overlay {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 250;
+place-items: center;
+padding: 28px;
+background: rgba(0, 0, 0, 0.86);
+backdrop-filter: blur(14px);
+-webkit-backdrop-filter: blur(14px);
+}
+
+.processing-overlay:not([hidden]) {
+display: grid;
+}
+
+.processing-modal-card {
+position: relative;
+width: 100%;
+max-width: 300px;
+padding: 28px 24px 24px;
+border-radius: 24px;
+background:
+linear-gradient(150deg, rgba(240,144,10,0.10) 0%, rgba(240,144,10,0) 55%),
+#161616;
+border: 1px solid rgba(240, 144, 10, 0.28);
+box-shadow:
+0 36px 80px rgba(0, 0, 0, 0.85),
+inset 0 1px 0 rgba(255, 255, 255, 0.03);
+text-align: center;
+animation: procModalIn 320ms var(--ease-smooth) both;
+}
+
+@keyframes procModalIn {
+from { opacity: 0; transform: scale(0.94) translateY(6px); }
+to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.processing-eyebrow {
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+font-size: 10.5px;
+font-weight: 800;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: var(--amber);
+margin-bottom: 20px;
+}
+
+.processing-eyebrow-dot {
+width: 6px;
+height: 6px;
+border-radius: 50%;
+background: var(--amber);
+animation: procEyebrowPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes procEyebrowPulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.35; }
+}
+
+.proc-ring-wrap {
+position: relative;
+width: 128px;
+height: 128px;
+margin: 0 auto 18px;
+}
+
+.proc-ring-wrap svg {
+transform: rotate(-90deg);
+}
+
+.proc-ring-track {
+fill: none;
+stroke: var(--border);
+stroke-width: 8;
+}
+
+.proc-ring-fill {
+fill: none;
+stroke: url(#procRingGradient);
+stroke-width: 8;
+stroke-linecap: round;
+transition: stroke-dashoffset 320ms var(--ease-smooth);
+}
+
+.proc-ring-center {
+position: absolute;
+inset: 0;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.processing-percent {
+font-size: 26px;
+font-weight: 900;
+color: var(--text);
+letter-spacing: -0.02em;
+font-variant-numeric: tabular-nums;
+display: flex;
+align-items: flex-start;
+}
+
+.processing-percent-sign {
+font-size: 14px;
+font-weight: 700;
+color: var(--text-muted);
+margin-left: 1px;
+margin-top: 2px;
+}
+
+.processing-title {
+font-size: 13.5px;
+font-weight: 700;
+color: var(--amber);
+margin-bottom: 6px;
+transition: opacity 220ms var(--ease-smooth);
+}
+
+.processing-subtitle {
+font-size: 11.5px;
+color: var(--text-muted);
+line-height: 1.5;
+margin-bottom: 22px;
+}
+
+.processing-stages {
+display: flex;
+flex-direction: column;
+text-align: left;
+}
+
+.processing-stage {
+display: flex;
+align-items: flex-start;
+gap: 10px;
+position: relative;
+padding-bottom: 16px;
+}
+
+.processing-stage:last-child {
+padding-bottom: 0;
+}
+
+.processing-stage::before {
+content: '';
+position: absolute;
+left: 5px;
+top: 14px;
+bottom: -2px;
+width: 2px;
+background: var(--border);
+z-index: 0;
+transition: background 320ms var(--ease-smooth);
+}
+
+.processing-stage:last-child::before { display: none; }
+
+.processing-stage-dot {
+width: 12px;
+height: 12px;
+border-radius: 50%;
+background: #1c1c1c;
+border: 2px solid var(--border-lt);
+flex-shrink: 0;
+margin-top: 1px;
+z-index: 1;
+transition: background 260ms var(--ease-smooth), border-color 260ms var(--ease-smooth), transform 260ms var(--ease-smooth);
+}
+
+.processing-stage-label {
+font-size: 12px;
+font-weight: 600;
+letter-spacing: 0.01em;
+color: var(--text-dim);
+line-height: 1.3;
+transition: color 260ms var(--ease-smooth);
+}
+
+.processing-stage.is-active .processing-stage-dot {
+background: var(--amber);
+border-color: var(--amber);
+transform: scale(1.15);
+box-shadow: 0 0 0 4px var(--amber-glow);
+animation: procDotPulse 1.4s ease-in-out infinite;
+}
+
+.processing-stage.is-active .processing-stage-label {
+color: var(--amber);
+}
+
+.processing-stage.is-active::before {
+background: var(--amber);
+}
+
+.processing-stage.is-done .processing-stage-dot {
+background: var(--green);
+border-color: var(--green);
+}
+
+.processing-stage.is-done .processing-stage-label {
+color: var(--text-muted);
+}
+
+.processing-stage.is-done::before {
+background: var(--green);
+}
+
+@keyframes procDotPulse {
+0%, 100% { box-shadow: 0 0 0 4px var(--amber-glow); }
+50% { box-shadow: 0 0 0 7px rgba(240, 144, 10, 0.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+.processing-modal-card { animation: none; }
+.processing-eyebrow-dot { animation: none; }
+.processing-stage.is-active .processing-stage-dot {
+animation: none;
+}
+}
+
+/* ── IMPORTANT NOTICE CARD ── */
+.notice-card {
+padding: 16px 18px;
+border-color: rgba(240, 144, 10, 0.2);
+}
+
+.notice-header {
+display: flex;
+align-items: center;
+gap: 7px;
+margin-bottom: 8px;
+}
+
+.notice-badge {
+font-size: 12px;
+font-weight: 800;
+color: var(--amber);
+}
+
+.notice-body {
+font-size: 12px;
+color: #999;
+line-height: 1.6;
+font-weight: 400;
+}
+
+.notice-body strong {
+color: var(--text);
+font-weight: 700;
+}
+
+/* ── SYSTEM FEATURES BANNER ── */
+.sysfeat-card {
+padding: 22px 20px;
+position: relative;
+overflow: hidden;
+background:
+linear-gradient(150deg, rgba(240,144,10,0.10) 0%, rgba(240,144,10,0) 55%),
+var(--bg-card);
+border-color: rgba(240, 144, 10, 0.22);
+}
+
+.sysfeat-head {
+width: 100%;
+display: flex;
+align-items: center;
+gap: 12px;
+margin-bottom: 16px;
+background: none;
+border: none;
+padding: 0;
+margin-top: 0;
+font: inherit;
+color: inherit;
+text-align: left;
+cursor: pointer;
+-webkit-tap-highlight-color: transparent;
+transition: transform 200ms var(--ease-smooth);
+}
+
+.sysfeat-head:active {
+transform: scale(0.98);
+}
+
+.sysfeat-head:focus-visible {
+outline: 2px solid var(--amber);
+outline-offset: 5px;
+border-radius: 12px;
+}
+
+.sysfeat-head-text {
+flex: 1;
+min-width: 0;
+}
+
+.sysfeat-chevron {
+flex-shrink: 0;
+color: var(--text-muted);
+transform: rotate(180deg);
+transition: transform 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sysfeat-head[aria-expanded="false"] .sysfeat-chevron {
+transform: rotate(0deg);
+}
+
+/* Grid-based collapse: animates smoothly to/from the content's natural
+height without hardcoding a max-height value. */
+.sysfeat-body {
+display: grid;
+grid-template-rows: 1fr;
+transition: grid-template-rows 320ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sysfeat-body.collapsed {
+grid-template-rows: 0fr;
+}
+
+.sysfeat-inner {
+overflow: hidden;
+min-height: 0;
+}
+
+.sysfeat-icon {
+flex-shrink: 0;
+width: 42px;
+height: 42px;
+border-radius: 13px;
+display: flex;
+align-items: center;
+justify-content: center;
+background: #161616;
+border: 1px solid var(--border-lt);
+}
+
+.sysfeat-title {
+font-size: 16px;
+font-weight: 800;
+color: var(--text);
+letter-spacing: -0.01em;
+}
+
+.sysfeat-subtitle {
+margin-top: 2px;
+font-size: 11.5px;
+color: var(--text-muted);
+}
+
+.sysfeat-list {
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+.sysfeat-item {
+display: flex;
+align-items: center;
+gap: 10px;
+font-size: 13px;
+font-weight: 500;
+color: #dcdcdc;
+letter-spacing: 0.01em;
+}
+
+.sysfeat-check {
+flex-shrink: 0;
+width: 20px;
+height: 20px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+background: rgba(34, 217, 122, 0.14);
+color: var(--green);
+}
+
+/* ── MORE INFORMATION / SOCIAL LINKS ── */
+.social-divider {
+display: flex;
+align-items: center;
+gap: 14px;
+margin: 22px 0 16px;
+}
+
+.social-divider-line {
+flex: 1;
+height: 1px;
+background: var(--border);
+}
+
+.social-divider-label {
+font-size: 11px;
+font-weight: 800;
+letter-spacing: 0.16em;
+text-transform: uppercase;
+color: var(--text-muted);
+white-space: nowrap;
+}
+
+.social-row {
+display: flex;
+gap: 10px;
+}
+
+.social-btn {
+flex: 1;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 12px 16px;
+border-radius: 18px;
+background: var(--bg-card);
+border: 1px solid var(--border);
+text-decoration: none;
+color: var(--text);
+font-size: 14px;
+font-weight: 600;
+transition: transform 200ms var(--ease-smooth), border-color 200ms var(--ease-smooth), background 200ms var(--ease-smooth);
+}
+
+.social-btn:hover {
+transform: translateY(-2px);
+border-color: var(--border-lt);
+background: var(--bg-card2);
+}
+
+.social-btn:active {
+transform: scale(0.98);
+}
+
+.social-icon-circle {
+flex-shrink: 0;
+width: 32px;
+height: 32px;
+border-radius: 50%;
+background: #f0f0f0;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+
+.social-icon-circle svg { display: block; }
+
+/* ── BOTTOM NAV BAR ── */
+.bottom-nav {
+position: fixed;
+bottom: 0;
+left: 0;
+width: 100%;
+background: #111111;
+border-top: 1px solid var(--border);
+display: flex;
+align-items: center;
+padding: 8px 10px 10px;
+gap: 4px;
+z-index: 100;
+}
+
+.nav-btn {
+flex: 1;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 4px;
+padding: 8px 6px;
+border-radius: 12px;
+background: transparent;
+border: none;
+color: var(--text-muted);
+font-size: 10px;
+font-weight: 600;
+letter-spacing: 0.02em;
+cursor: pointer;
+font-family: inherit;
+transition: background 180ms ease, color 180ms ease, transform 160ms var(--ease-smooth);
+}
+
+.nav-btn.active {
+background: #222222;
+color: var(--text);
+border: 1px solid var(--border-lt);
+}
+
+.nav-btn:hover:not(.active) {
+color: #aaa;
+}
+
+.nav-btn:active {
+transform: scale(0.96);
+}
+
+.nav-btn svg { flex-shrink: 0; }
+
+/* ── WARNING OVERLAY ── */
+.cu-warning-overlay {
+position: fixed;
+inset: 0;
+z-index: 200;
+display: grid;
+place-items: center;
+padding: 20px;
+background: rgba(0,0,0,0.85);
+backdrop-filter: blur(12px);
+animation: fadeIn 200ms ease both;
+}
+
+.cu-warning-overlay[hidden] { display: none; }
+
+@keyframes fadeIn {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+
+.cu-warning-modal {
+width: 100%;
+padding: 22px;
+border-radius: 20px;
+background: #1a1a1a;
+border: 1px solid var(--border-lt);
+box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+}
+
+.cu-warning-kicker {
+display: inline-flex;
+margin-bottom: 12px;
+padding: 5px 10px;
+border-radius: 999px;
+color: var(--amber);
+background: var(--amber-soft);
+border: 1px solid rgba(240,144,10,0.3);
+font-size: 10px;
+font-weight: 800;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+}
+
+.cu-warning-title {
+color: var(--text);
+font-size: 20px;
+font-weight: 900;
+letter-spacing: 0.02em;
+text-transform: uppercase;
+margin-bottom: 10px;
+}
+
+.cu-warning-body {
+color: #999;
+font-size: 13px;
+line-height: 1.55;
+margin-bottom: 18px;
+}
+
+.cu-warning-close {
+width: 100%;
+min-height: 46px;
+border-radius: 12px;
+background: #222;
+border: 1px solid var(--border-lt);
+color: var(--text);
+font-size: 13px;
+font-weight: 700;
+cursor: pointer;
+font-family: inherit;
+transition: background 180ms ease, transform 160ms var(--ease-smooth);
+}
+
+.cu-warning-close:hover { background: #2a2a2a; }
+.cu-warning-close:active { transform: scale(0.98); }
+
+.upload-page-btn {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 100%;
+min-height: 54px;
+margin-top: 12px;
+margin-bottom: 12px;
+padding: 12px 16px;
+border-radius: 16px;
+border: 1px solid #3a3a3a;
+font-family: 'Inter', sans-serif;
+font-size: 12px;
+font-weight: 800;
+letter-spacing: 0.18em;
+text-transform: uppercase;
+text-decoration: none;
+color: var(--text);
+background: linear-gradient(135deg, #1a1a1a 0%, #222222 100%);
+transition: transform 220ms var(--ease-smooth), box-shadow 220ms var(--ease-smooth), background 220ms var(--ease-smooth), border-color 220ms var(--ease-smooth);
+}
+.upload-page-btn:hover {
+background: linear-gradient(135deg, #222 0%, #2a2a2a 100%);
+border-color: #555;
+transform: translateY(-1px);
+box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.55);
+}
+.upload-page-btn:active {
+transform: scale(0.98);
+box-shadow: none;
+}
+
+/* ── ANNOUNCEMENT OVERLAY ── */
+
+/* 1 — fullscreen blurred backdrop */
+.version-block-overlay {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 300;
+place-items: center;
+padding: 28px;
+background: rgba(0, 0, 0, 0.92);
+backdrop-filter: blur(18px);
+-webkit-backdrop-filter: blur(18px);
+}
+
+.version-block-overlay.visible {
+display: grid;
+}
+
+.version-block-card {
+position: relative;
+width: 100%;
+max-width: 358px;
+padding: 28px 24px 24px;
+border-radius: 24px;
+background:
+linear-gradient(145deg, rgba(240,60,10,0.13) 0%, rgba(240,60,10,0.01) 55%),
+#1b1b1b;
+border: 1px solid rgba(240, 60, 10, 0.40);
+box-shadow: 0 36px 80px rgba(0, 0, 0, 0.95);
+text-align: center;
+}
+
+.version-block-title {
+font-size: 21px;
+font-weight: 900;
+color: var(--text);
+letter-spacing: -0.02em;
+line-height: 1.2;
+margin-bottom: 10px;
+}
+
+.version-block-message {
+font-size: 13.5px;
+color: var(--text-dim, #b7b7b7);
+line-height: 1.5;
+margin-bottom: 14px;
+}
+
+.version-block-versions {
+font-size: 11.5px;
+color: var(--text-dim, #8a8a8a);
+display: flex;
+flex-direction: column;
+gap: 4px;
+}
+
+.announcement-header {
+margin-bottom: 12px;
+}
+
+.announcement-header-title {
+font-size: 11px;
+font-weight: 800;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(--amber);
+}
+
+.announcement-header-subtitle {
+font-size: 12px;
+color: var(--text-dim, #999);
+margin-top: 2px;
+}
+
+.announcement-cards {
+display: flex;
+flex-direction: column;
+gap: 10px;
+margin: 16px 0;
+}
+
+.announcement-card-item {
+position: relative;
+padding: 12px 14px 12px 16px;
+border-radius: 14px;
+background:
+linear-gradient(135deg, rgba(240,144,10,0.07) 0%, rgba(255,255,255,0.025) 100%);
+border: 1px solid var(--ann-border, rgba(255,255,255,0.08));
+backdrop-filter: blur(6px);
+-webkit-backdrop-filter: blur(6px);
+overflow: hidden;
+transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+}
+
+.announcement-card-item::before {
+content: '';
+position: absolute;
+left: 0;
+top: 0;
+bottom: 0;
+width: 3px;
+background: linear-gradient(180deg, var(--ann-primary, var(--amber)) 0%, transparent 100%);
+opacity: 0.85;
+}
+
+.announcement-card-item:hover {
+background:
+linear-gradient(135deg, rgba(240,144,10,0.12) 0%, rgba(255,255,255,0.04) 100%);
+border-color: var(--ann-primary, rgba(240,144,10,0.35));
+transform: translateY(-1px);
+}
+
+.announcement-card-item-title {
+font-size: 12.5px;
+font-weight: 700;
+color: var(--ann-text, var(--text));
+margin-bottom: 3px;
+letter-spacing: -0.01em;
+}
+
+.announcement-card-item-desc {
+font-size: 11.5px;
+color: var(--ann-text-muted, #999);
+line-height: 1.45;
+}
+
+.announcement-buttons {
+display: flex;
+flex-direction: column;
+gap: 8px;
+margin-top: 6px;
+}
+
+.announcement-buttons .announcement-btn {
+display: none;
+}
+
+.announcement-buttons .announcement-btn.shown {
+display: flex;
+}
+
+.announcement-banner {
+display: none;
+position: fixed;
+inset: 0;
+z-index: 250;
+place-items: center;
+padding: 28px;
+background: rgba(0, 0, 0, 0.84);
+backdrop-filter: blur(18px);
+-webkit-backdrop-filter: blur(18px);
+}
+
+.announcement-banner.visible {
+display: grid;
+animation: overlayIn 320ms ease both;
+}
+
+@keyframes overlayIn {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+
+/* 2 — card springs up from below after backdrop settles */
+.announcement-card {
+position: relative;
+width: 100%;
+max-width: 358px;
+padding: 28px 24px 24px;
+border-radius: 24px;
+background:
+linear-gradient(145deg, rgba(240,144,10,0.13) 0%, rgba(240,144,10,0.01) 55%),
+var(--ann-card, #1b1b1b);
+border: 1px solid var(--ann-border, rgba(240, 144, 10, 0.40));
+box-shadow:
+0 36px 80px rgba(0, 0, 0, 0.95),
+0 0 0 1px rgba(240,144,10,0.06),
+inset 0 1px 0 rgba(255,255,255,0.03);
+animation: cardSpring 560ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+}
+
+@keyframes cardSpring {
+from { opacity: 0; transform: translateY(40px) scale(0.90); }
+to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 3 — badge */
+.announcement-badge {
+display: none;
+align-items: center;
+padding: 4px 11px;
+border-radius: 999px;
+background: var(--ann-accent-soft, var(--amber-soft));
+border: 1px solid var(--ann-accent-line, rgba(240,144,10,0.32));
+color: var(--ann-primary, var(--amber));
+font-family: 'Space Grotesk', system-ui, sans-serif;
+font-size: 9.5px;
+font-weight: 700;
+letter-spacing: 0.13em;
+text-transform: uppercase;
+margin-bottom: 16px;
+}
+
+/* 4 — title & body */
+.announcement-title {
+font-size: 23px;
+font-weight: 900;
+color: var(--ann-text, var(--text));
+letter-spacing: -0.02em;
+line-height: 1.18;
+margin-bottom: 10px;
+}
+
+.announcement-message {
+font-size: 13.5px;
+color: var(--ann-text-muted, #8a8a8a);
+line-height: 1.62;
+}
+
+/* 5 — CTA button */
+.announcement-btn {
+display: none;
+align-items: center;
+justify-content: center;
+width: 100%;
+min-height: 50px;
+margin-top: 22px;
+border-radius: 14px;
+border: 1px solid var(--ann-accent-line, rgba(240,144,10,0.45));
+background: var(--ann-btn-bg, linear-gradient(135deg, rgba(240,144,10,0.24) 0%, rgba(240,144,10,0.11) 100%));
+color: var(--ann-primary, var(--amber));
+font-size: 12.5px;
+font-weight: 800;
+letter-spacing: 0.09em;
+text-transform: uppercase;
+cursor: pointer;
+font-family: inherit;
+transition: background 200ms ease, border-color 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+}
+
+.announcement-btn:hover {
+border-color: var(--ann-primary, var(--amber));
+background: var(--ann-btn-bg-hover, linear-gradient(135deg, rgba(240,144,10,0.34) 0%, rgba(240,144,10,0.18) 100%));
+transform: translateY(-1px);
+box-shadow: 0 8px 24px var(--ann-primary-glow, rgba(240,144,10,0.12));
+}
+
+.announcement-btn:active {
+transform: scale(0.98);
+}
+
+/* Buttons rendered inside .announcement-buttons (multi-button schema).
+Primary uses the amber CTA look above; non-primary uses the
+theme's neutral button/buttonBorder/buttonText colors if provided. */
+.announcement-buttons .announcement-btn:not(.primary) {
+border: 1px solid var(--ann-button-border, rgba(255,255,255,0.12));
+background: var(--ann-button, rgba(255,255,255,0.04));
+color: var(--ann-button-text, var(--text));
+margin-top: 0;
+}
+
+.announcement-buttons .announcement-btn:not(.primary):hover {
+transform: translateY(-1px);
+box-shadow: none;
+}
+
+/* announcement-close CSS removed — banner is no longer dismissible */
+
+/* 6 — footnote in Space Grotesk */
+.announcement-footnote {
+display: none;
+font-family: 'Space Grotesk', system-ui, sans-serif;
+font-size: 10px;
+font-weight: 600;
+color: var(--ann-footnote, #3e3e3e);
+letter-spacing: 0.14em;
+text-transform: uppercase;
+text-align: center;
+margin-top: 20px;
+padding-top: 16px;
+border-top: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+/* ═══════════════════════════════════════ */
+/* OPENING / ENTRANCE ANIMATIONS */
+/* ═══════════════════════════════════════ */
+
+/* Respect users who've asked for less motion */
+@media (prefers-reduced-motion: reduce) {
+.cu-anim-in,
+.app-logo,
+.bottom-nav,
+.app-title .cu-char,
+.app-subtitle .cu-char,
+.patcher-title .cu-char { animation: none !important; }
+}
+
+/* Clean fade + rise, used for every card / button / block */
+@keyframes cuFadeUp {
+from { opacity: 0; transform: translateY(14px) scale(0.985); }
+to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cu-anim-in {
+animation: cuFadeUp 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+animation-delay: var(--cu-delay, 0ms);
+}
+
+/* Logo pops in on first open */
+@keyframes cuLogoPop {
+from { opacity: 0; transform: scale(0.55) rotate(-10deg); }
+to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.app-logo {
+animation: cuLogoPop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 30ms both;
+}
+
+/* Bottom nav rises up from the edge */
+@keyframes cuNavIn {
+from { opacity: 0; transform: translateY(100%); }
+to { opacity: 1; transform: translateY(0); }
+}
+
+.bottom-nav {
+animation: cuNavIn 420ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
+}
+
+/* Clean character-by-character "rewrite" reveal for page titles */
+.app-title {
+display: inline-flex;
+align-items: baseline;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+@keyframes cuCharIn {
+from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.app-title .cu-char {
+display: inline-block;
+animation: cuCharIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+animation-delay: var(--cu-char-delay, 0ms);
+}
+
+.app-title .cu-space { width: 0.3em; }
+
+/* Subtitle gets the same character-by-character reveal, staggered
+to start right after the title finishes */
+.app-subtitle {
+display: inline-flex;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+.app-subtitle .cu-char {
+display: inline-block;
+animation: cuCharIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+animation-delay: var(--cu-char-delay, 0ms);
+}
+
+.app-subtitle .cu-space { width: 0.25em; }
+
+/* Video Patcher card title — same character reveal, plus a subtle
+pop/rise on the icon chip right before it */
+.patcher-title {
+display: inline-flex;
+flex-wrap: wrap;
+justify-content: center;
+}
+
+.patcher-title .cu-char {
+display: inline-block;
+animation: cuCharIn 460ms cubic-bezier(0.16, 1, 0.3, 1) both;
+animation-delay: var(--cu-char-delay, 0ms);
+}
+
+.patcher-title .cu-space { width: 0.28em; }
+
+@keyframes cuIconPop {
+from { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+.patcher-icon.cu-icon-in {
+animation: cuIconPop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+.patcher-icon.cu-icon-in { animation: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="ryu-tap-ripple-layer" id="ryuTapRippleLayer" aria-hidden="true"></div>
+
+<!-- VERSION BLOCK OVERLAY (fixed structure — only text fields are ever set at runtime) -->
+<div class="version-block-overlay" id="versionBlockOverlay" hidden>
+<div class="version-block-card">
+<div class="version-block-title" id="versionBlockTitle"></div>
+<div class="version-block-message" id="versionBlockMessage"></div>
+<div class="version-block-versions">
+<span id="versionBlockCurrent"></span>
+<span id="versionBlockLatest"></span>
+</div>
+</div>
+</div>
+
+<!-- ACCESS BLOCK OVERLAY (region gate) — same visual treatment as the
+version block overlay above, no dismiss control anywhere in it. -->
+<div class="version-block-overlay" id="accessBlockOverlay" hidden>
+<div class="version-block-card">
+<div class="version-block-title" id="accessBlockTitle">Extension Unavailable</div>
+<div class="version-block-message" id="accessBlockMessage"></div>
+</div>
+</div>
+
+<!-- ANNOUNCEMENT BANNER (populated from idleryu-announcement-v3.vercel.app) -->
+<div class="announcement-banner" id="announcementBanner" hidden>
+<div class="announcement-card">
+<!-- Close button intentionally removed — announcement banner cannot be dismissed. -->
+
+<div class="announcement-header" id="announcementHeader" hidden>
+<div class="announcement-header-subtitle" id="announcementHeaderSubtitle"></div>
+</div>
+
+<div class="announcement-badge" id="announcementBadge"></div>
+<div class="announcement-title" id="announcementTitle"></div>
+<div class="announcement-message" id="announcementMessage"></div>
+
+<!-- Optional list of items, populated from changelog.json -->
+<div class="announcement-cards" id="announcementCards" hidden></div>
+
+<!-- CTA, populated from announcement.json's cta.label / cta.url -->
+<div class="announcement-buttons" id="announcementButtons">
+<button class="announcement-btn primary" id="announcementPrimaryBtn" type="button"></button>
+</div>
+
+<div class="announcement-footnote" id="announcementFootnote"></div>
+</div>
+</div>
+
+<!-- HIDDEN INPUTS -->
+<input type="file" id="fileInput" accept="video/*">
+
+<!-- ═══════════════════════════════════════ -->
+<!-- PAGE: PATCHER -->
+<!-- ═══════════════════════════════════════ -->
+<div class="app-content page-view active" id="page-patcher">
+
+<div class="app-title-section">
+<div class="app-title">
+<span class="white">R3kos 12fps </span><span class="amber">Tiktok</span>
+</div>
+<div class="app-subtitle">Tools for high quality TikTok upload</div>
+</div>
+
+<!-- VIDEO PATCHER CARD -->
+<div class="card patcher-card">
+<div class="patcher-card-header">
+<div class="patcher-icon">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+<polyline points="17 8 12 3 7 8"/>
+<line x1="12" y1="3" x2="12" y2="15"/>
+</svg>
+</div>
+<div class="patcher-title">Video Patcher</div>
+</div>
+
+<button class="upload-btn" id="uploadTrigger" type="button">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+<polyline points="13 2 13 9 20 9"/>
+</svg>
+Select Video (Upload &amp; Patch)
+</button>
+
+ 
+
+
+<div id="detectSection" style="display:none;">
+<div style="margin:18px 0 14px;border-top:1px solid var(--border);"></div>
+
+<div class="status-inline-label">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="11" cy="11" r="8"/>
+<line x1="21" y1="21" x2="16.65" y2="16.65"/>
+</svg>
+System Detect
+</div>
+
+<div class="info-row" style="margin-top:10px;">
+<div class="info-cell">
+<div class="info-cell-label">Resolution</div>
+<div class="info-cell-value" id="detectResolution">—</div>
+</div>
+<div class="info-cell">
+<div class="info-cell-label">Frame Rate</div>
+<div class="info-cell-value" id="detectFrameRate">—</div>
+</div>
+</div>
+
+<div class="info-row">
+<div class="info-cell">
+<div class="info-cell-label">Duration</div>
+<div class="info-cell-value" id="detectDuration">—</div>
+</div>
+<div class="info-cell">
+<div class="info-cell-label">File Size</div>
+<div class="info-cell-value" id="detectFileSize">—</div>
+</div>
+</div>
+
+<div class="info-row">
+<div class="info-cell">
+<div class="info-cell-label">Bitrate</div>
+<div class="info-cell-value" id="detectBitrate">—</div>
+</div>
+<div class="info-cell">
+<div class="info-cell-label">Status</div>
+<div class="info-cell-value" id="detectStatus">—</div>
+</div>
+</div>
+
+<div class="detect-warning" id="detectSizeWarning" style="display:none;">
+Video is over 90 MB — it may flop because of that. Compress it before patching.
+</div>
+</div>
+
+<div style="margin:18px 0 14px;border-top:1px solid var(--border);"></div>
+
+<div class="status-inline-label">
+<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+</svg>
+Process Status
+</div>
+<div id="status" class="status-box" data-state="idle" data-i18n="ready">Ready — select a video to begin.</div>
+</div>
+
+<div class="card watermark-card" id="fullTabCard" style="margin-bottom:8px;">
+<div class="watermark-card-top">
+<div class="watermark-card-text">
+<div class="watermark-card-title">Full Tab</div>
+<div class="watermark-card-desc" id="fullTabDesc">Open the app in its own full browser tab for more screen space</div>
+</div>
+<button class="fulltab-btn" id="fullTabBtn" type="button">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M15 3h6v6"/>
+<path d="M9 21H3v-6"/>
+<path d="M21 3l-7 7"/>
+<path d="M3 21l7-7"/>
+</svg>
+Open
+</button>
+</div>
+</div>
+
+<!-- PATCH & DOWNLOAD BUTTON -->
+<button class="patch-btn" id="patchBtn" disabled type="button">
+<span class="patch-btn-shine"></span>
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+</svg>
+<span class="patch-btn-label" data-i18n="patchDownload">Patch &amp; Download</span>
+</button>
+
+<!-- FFMPEG PROCESSING PANEL — centered modal overlay -->
+<div class="processing-overlay" id="processingCard" hidden>
+<div class="processing-modal-card">
+<div class="processing-eyebrow">
+<span class="processing-eyebrow-dot"></span>
+Patching in progress
+</div>
+
+<div class="proc-ring-wrap">
+<svg width="128" height="128" viewBox="0 0 128 128">
+<defs>
+<linearGradient id="procRingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+<stop offset="0%" style="stop-color:#f0900a"/>
+<stop offset="100%" style="stop-color:#ffb545"/>
+</linearGradient>
+</defs>
+<circle class="proc-ring-track" cx="64" cy="64" r="54"/>
+<circle class="proc-ring-fill" id="procRingFill" cx="64" cy="64" r="54"/>
+</svg>
+<div class="proc-ring-center">
+<div class="processing-percent"><span id="procPercent">0</span><span class="processing-percent-sign">%</span></div>
+</div>
+</div>
+
+<div class="processing-title" id="procStageTitle">Loading Video</div>
+<div class="processing-subtitle">Patching the sample tables directly — keep this window open until it finishes.</div>
+
+<div class="processing-stages" id="procStages">
+<div class="processing-stage" data-stage="load">
+<span class="processing-stage-dot"></span>
+<span class="processing-stage-label">Loading Video</span>
+</div>
+<div class="processing-stage" data-stage="init">
+<span class="processing-stage-dot"></span>
+<span class="processing-stage-label">Initializing FFmpeg</span>
+</div>
+<div class="processing-stage" data-stage="analyze">
+<span class="processing-stage-dot"></span>
+<span class="processing-stage-label">Analyzing Metadata</span>
+</div>
+<div class="processing-stage" data-stage="save">
+<span class="processing-stage-dot"></span>
+<span class="processing-stage-label">Saving Output</span>
+</div>
+<div class="processing-stage" data-stage="done">
+<span class="processing-stage-dot"></span>
+<span class="processing-stage-label">Completed</span>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<!-- PAGE: GUIDE -->
+<div class="app-content page-view" id="page-guide" style="padding-top:20px;">
+
+<!-- SYSTEM FEATURES BANNER -->
+<div class="card sysfeat-card">
+<button class="sysfeat-head" id="sysfeatToggle" type="button" aria-expanded="false" aria-controls="sysfeatBody">
+<div class="sysfeat-icon">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="10"/>
+<line x1="12" y1="7" x2="12" y2="13"/>
+<circle cx="12" cy="16.7" r="0.5" fill="#ccc"/>
+</svg>
+</div>
+<div class="sysfeat-head-text">
+<div class="sysfeat-title">System Features</div>
+<div class="sysfeat-subtitle">Everything you need for TikTok</div>
+</div>
+<svg class="sysfeat-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="6 9 12 15 18 9"/>
+</svg>
+</button>
+<div class="sysfeat-body collapsed" id="sysfeatBody">
+<div class="sysfeat-inner">
+<div class="sysfeat-list">
+<div class="sysfeat-item">
+<span class="sysfeat-check">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="20 6 9 17 4 12"/>
+</svg>
+</span>
+High Quality Upload Tiktok
+</div>
+<div class="sysfeat-item">
+<span class="sysfeat-check">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="20 6 9 17 4 12"/>
+</svg>
+</span>
+Support Up to 2160P 120FPS
+</div>
+<div class="sysfeat-item">
+<span class="sysfeat-check">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="20 6 9 17 4 12"/>
+</svg>
+</span>
+Lossless Upload 0 Compression
+</div>
+<div class="sysfeat-item">
+<span class="sysfeat-check">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="20 6 9 17 4 12"/>
+</svg>
+</span>
+Added Sound &amp; Music Support
+</div>
+<div class="sysfeat-item">
+<span class="sysfeat-check">
+<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+<polyline points="20 6 9 17 4 12"/>
+</svg>
+</span>
+Support Mobile &amp; PC
+</div>
+</div>
+</div>
+</div>
+
+<div style="margin:16px 0 14px;border-top:1px solid var(--border);"></div>
+
+<!-- WATERMARK TOGGLE -->
+<div class="watermark-card-top" id="watermarkCard">
+<div class="watermark-card-text">
+<div class="watermark-card-title">Watermark</div>
+<div class="watermark-card-desc" id="watermarkDesc">Automatically appends the @rekos12fps credit line to your caption when you upload</div>
+</div>
+<button class="wm-toggle" id="watermarkToggle" type="button" role="switch" aria-checked="false">
+<span class="wm-toggle-knob"></span>
+</button>
+</div>
+</div>
+
+<!-- HOW TO USE CARD (includes file size tip) -->
+<div class="card sysfeat-card">
+<div class="sysfeat-head" style="margin-bottom:16px;">
+<div class="sysfeat-icon">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+<path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+</svg>
+</div>
+<div class="sysfeat-head-text">
+<div class="sysfeat-title">How to use</div>
+<div class="sysfeat-subtitle">Quick steps to get started</div>
+</div>
+</div>
+<div style="font-size:13px;color:#999;line-height:1.75;">
+<p style="margin-bottom:10px;"><strong style="color:var(--text);">1. Patch your video</strong> — Open the Patcher tab, select your MP4, and hit <em>Patch &amp; Download</em>. This rewrites the file's sample-table metadata so TikTok's pipeline treats it differently on the way in.</p>
+<p style="margin-bottom:10px;"><strong style="color:var(--text);">2. Upload</strong> — Once your patched file finishes downloading, the TikTok upload page opens automatically — just drop the downloaded file in there.</p>
+<p style="margin-bottom:0;"><strong style="color:var(--amber);">Pro tip:</strong> Need more screen space to work? Hit the <em>Full Tab</em> button on the Patcher screen to open the app in its own browser tab.</p>
+</div>
+
+<div style="margin:16px 0 14px;border-top:1px solid var(--border);"></div>
+
+<div class="notice-header" style="margin-bottom:8px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0900a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+<line x1="12" y1="9" x2="12" y2="13"/>
+<line x1="12" y1="17" x2="12.01" y2="17"/>
+</svg>
+<span class="notice-badge">File size tip</span>
+</div>
+<p class="notice-body" style="margin-bottom:0;">
+Keep your source video <strong>under 150 MB</strong> for the cleanest results — TikTok compresses harder above that, even on a patched file.
+</p>
+
+<div style="margin:16px 0 14px;border-top:1px solid var(--border);"></div>
+
+<div class="notice-header" style="margin-bottom:8px;">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0900a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+<line x1="12" y1="9" x2="12" y2="13"/>
+<line x1="12" y1="17" x2="12.01" y2="17"/>
+</svg>
+<span class="notice-badge">Important</span>
+</div>
+<p class="notice-body" style="margin-bottom:0;">
+Videos uploaded to TikTok <strong>without patching</strong> will be automatically compressed by TikTok's system and cannot be displayed in HD quality.
+</p>
+</div>
+
+<!-- MORE INFORMATION -->
+<div class="social-divider">
+<span class="social-divider-line"></span>
+<span class="social-divider-label">More Information</span>
+<span class="social-divider-line"></span>
+</div>
+<div class="social-row">
+<a class="social-btn" href="" target="_blank" rel="noopener noreferrer">
+<span class="social-icon-circle">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="#0c0c0c">
+<path d="M16.6 5.82c-1.02-.9-1.6-2.17-1.6-3.53h-3.24v13.72c0 1.63-1.32 2.95-2.95 2.95a2.95 2.95 0 0 1 0-5.9c.28 0 .55.04.8.11V9.9a6.2 6.2 0 0 0-.8-.05A6.2 6.2 0 0 0 2.6 16.05 6.2 6.2 0 0 0 8.8 22.25a6.2 6.2 0 0 0 6.2-6.2V9.03a8.6 8.6 0 0 0 5.02 1.6V7.4c-1.24 0-2.4-.4-3.42-1.18z"/>
+</svg>
+</span>
+TikTok
+</a>
+<a class="social-btn" href= target="_blank" rel="noopener noreferrer">
+<span class="social-icon-circle">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="#0c0c0c">
+<path d="M21.9 3.6L18.7 19.4c-.24 1.06-.87 1.32-1.76.82l-4.86-3.58-2.35 2.26c-.26.26-.48.48-.98.48l.35-4.93 8.97-8.1c.39-.35-.09-.54-.6-.19L6.6 12.8l-4.83-1.5c-1.05-.33-1.07-1.05.22-1.55L20.6 2.4c.87-.33 1.63.2 1.3 1.2z"/>
+</svg>
+</span>
+Telegram
+</a>
+</div>
+</div>
+
+<!-- ── BOTTOM NAV ── -->
+<nav class="bottom-nav">
+<button class="nav-btn active" type="button" data-page="patcher">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+<polyline points="17 8 12 3 7 8"/>
+<line x1="12" y1="3" x2="12" y2="15"/>
+</svg>
+Patcher
+</button>
+<button class="nav-btn" type="button" data-page="guide">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<circle cx="12" cy="12" r="10"/>
+<line x1="12" y1="8" x2="12" y2="12"/>
+<line x1="12" y1="16" x2="12.01" y2="16"/>
+</svg>
+Guide
+</button>
+</nav>
+
+<!-- SIZE WARNING OVERLAY -->
+<div class="cu-warning-overlay" id="sizeWarning" role="dialog" aria-modal="true" aria-labelledby="sizeWarningTitle" hidden>
+<div class="cu-warning-modal">
+<span class="cu-warning-kicker" data-i18n="sizeWarningKicker">File size warning</span>
+<h2 class="cu-warning-title" id="sizeWarningTitle" data-i18n="sizeWarningTitle">Video over 150 MB</h2>
+<p class="cu-warning-body" data-i18n="sizeWarningBody">
+Your video is bigger than 150 MB. It may flop because of that. It is HIGHLY recommended to compress it more.
+</p>
+<button class="cu-warning-close" id="sizeWarningClose" type="button" data-i18n="close">Close</button>
+</div>
+</div>
+
+<!-- ffmpeg.wasm removed — patching runs directly, no ffmpeg pass -->
+<script src="popup.js"></script>
+</body>
+</html>
